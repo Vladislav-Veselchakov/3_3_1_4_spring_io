@@ -15,29 +15,129 @@ import org.springframework.web.client.RestTemplate;
 import web.model.Quote;
 import web.model.User;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.URL;
+import java.util.*;
 
 @RestController
 public class SomeController {
     private final RestTemplate restTemplate;
+    private String URL;
+    private HttpHeaders headers;
+    private StringBuilder resp2task;
+    private StringBuilder sbResp;
+    /** aaa ///////////////////////// swithch on PROXY, if on work: ///////////////////////
+     Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("proxy", 8080));
+     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+     requestFactory.setProxy(proxy);
+
+     RestTemplate restTemplate1 = new RestTemplate(requestFactory);
+     */
 
     public SomeController(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
+        this.URL = "http://91.241.64.178:7081/api/users";
+        this.headers = new HttpHeaders();
+        this.resp2task = new StringBuilder();
+        this.sbResp = new StringBuilder("<!DOCTYPE html>\n" +
+                "<html lang=\"ru-RU\">\n" +
+                "<head>\n" +
+                "    <meta charset=\"UTF-8\">\n" +
+                "    <title>VL Resttemplate response</title>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "<H3>response: </H3>\n");
+
     }
 
-    @GetMapping("/")
-    public String koren() {
+    @GetMapping("/getAnswer") //////////////////////////// "/getAnswer" //////////////////////////////////////////////
+    public String getAnswer(){
+        getUsers();
+        String ans1 = addUser();
+        String ans2 = updateUser();
+        String ans3 = deleteUser();
+
+        resp2task.append(ans1).append(ans2).append(ans3);
+        sbResp.append("\n<br><br> FULL answer: &nbsp &nbsp" + resp2task + "<br>\n");
+        sbResp.append("\n<br>time: ").append((new Date()).toLocaleString()).append("<br>\n");
+        sbResp.append("\n<br>\n </body>\n" + "</html>");
+        return sbResp.toString();
+
+    }
+
+    ///////////////////////// берем список user'oB //////////////////////////////
+    public void getUsers() {
+        ResponseEntity<String> response = restTemplate.getForEntity(URL, String.class);
+        String sUsers = response.getBody();
+
+        // берем id сессии:
+        String sFullSession = response.getHeaders().get("Set-Cookie").get(0);
+//        List<String> lstString = restTemplate.headForHeaders(URL).get("Set-Cookie");
+//        String sFullSession = lstString.get(0);
+
+        headers.clear();
+        headers.add("Cookie", sFullSession);
+
+        System.out.println("Sesssion ID: " + sFullSession);
+        sbResp.append("Session ID: ").append(sFullSession).append("<br>\n");
+
+        sUsers = "{arr:" + sUsers + "}";
+        sUsers = (new JSONObject(sUsers)).toString(4);
+        sUsers = sUsers.replace(" ", "&nbsp;").replace("\n", "<br>\n");
+        sbResp.append("added users: <br>\n").append(sUsers);
+    }
+
+    //////////////////////// добавляем user'a ///////////////////////////////////////////
+    public String addUser() {
+        User user2add = new User(3L, "James", "Brown",  (byte) 2);
+        HttpEntity<User> request = new HttpEntity<>(user2add, headers);
+        ResponseEntity response = restTemplate.postForEntity(URL, request, String.class);
+
+        String sBody = (String) response.getBody();
+        sbResp.append("\n<br>Response #1: " + sBody + "<br>\n");
+
+        return sBody;
+    }
+
+  ///////////////////////// update user ///////////////////////////////////////////////
+    public String updateUser() {
+        User user2add = new User(3L, "James", "Brown",  (byte) 2);
+        user2add.setName("Thomas");
+        user2add.setLastName("Shelby");
+
+        HttpEntity<User> request = new HttpEntity<>(user2add, headers);
+        ResponseEntity response = restTemplate.exchange(URL, HttpMethod.PUT, request, String.class);
+
+        String sBody = (String) response.getBody();
+        sbResp.append("\n<br>Response #2: " + sBody + "<br>\n");
+        return sBody;
+    }
+
+    ///////////////////////////// Delete user //////////////////////////////////////////
+    public String deleteUser() {
+//        restTemplate.delete(URL + "/3");
+        User user2add = new User(3L, "James", "Brown",  (byte) 2);
+        user2add.setName("Thomas");
+        user2add.setLastName("Shelby");
+
+        HttpEntity<User> request = new HttpEntity<>(user2add, headers);
+        ResponseEntity response = restTemplate.exchange(URL + "/3", HttpMethod.DELETE, request, String.class);
+
+        String sBody = (String) response.getBody();
+        sbResp.append("\n<br>Response #3: " + sBody + "<br>\n");
+        return sBody;
+    }
+
+
+    @GetMapping("/") ///////////////////////////////// "/"   //////////////////////
+    public String root() {
         return "<!DOCTYPE html> <html>" +
                 "<body><h3>Hello VL</h3></body></html>";
     }
 
-    @GetMapping("/quote")
-    public Quote getQuote() throws Exception {
+    @GetMapping("/quote") //////////////////////////////////// "/quote" //////////////////////////////////////
+    public String getQuote() throws Exception {
         int aa = 111;
-
+        String sFullSession = "JSESSIONID=28DA658A4CA3E853A00FB92ACEFCD1D5; Path=/; HttpOnly";
 
         String squote = restTemplate.getForObject(
                 "https://quoters.apps.pcfone.io/api/random", String.class);
@@ -51,101 +151,81 @@ public class SomeController {
         Quote quote = restTemplate.getForObject(
                 "https://quoters.apps.pcfone.io/api/random", Quote.class);
 
-//        ResponseEntity qts = restTemplate1.getForEntity(
-//                "https://quoters.apps.pcfone.io/api/random",
-//                Quote[].class);
+        StringBuilder sbResp = new StringBuilder("<!DOCTYPE html>\n" +
+                "<html lang=\"ru-RU\">\n" +
+                "<head>\n" +
+                "    <meta charset=\"UTF-8\">\n" +
+                "    <title>VL Resttemplate response</title>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "<H3>response: </H3>\n");
 
 
-        int bb = 222;
-        return quote;
+        String indented = (new JSONObject(quote)).toString(4);
+
+        System.out.println(indented);
+
+//        sbResp.append(indented.replace("\n", "<br>")).append("<br> </body>\n" +
+        sbResp.append(indented.replace(" ", "&nbsp;").replace("\n", "<br>\n")).append("\n<br>\n </body>\n" +
+                "</html>");
+        return sbResp.toString();
     }
 
-    @GetMapping("/getUsers")
-    public Object[] getUsers(){
-        int aa = 111;
 
-//        Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("proxy", 8080));
-//        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-//        requestFactory.setProxy(proxy);
-//
-//        RestTemplate restTemplate1 = new RestTemplate(requestFactory);
+    @GetMapping("/test") //////////////////////////// "/test" //////////////////////////////////////////////
+    public String getTest() throws Exception {
+        List<String> lObjects = new ArrayList<>();
+        StringBuilder sbResp = new StringBuilder("<!DOCTYPE html>\n" +
+                "<html lang=\"ru-RU\">\n" +
+                "<head>\n" +
+                "    <meta charset=\"UTF-8\">\n" +
+                "    <title>VL Resttemplate response</title>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "RESPONSE<BR>\n");
+
+        // берем id сессии:
+        String sSesionId = "28DA658A4CA3E853A00FB92ACEFCD1D5";
+        sbResp.append("Session ID: ").append(sSesionId).append("<br>\n");
+
+        ///////////////////////// берем список user'oB //////////////////////////////
+        User[] arrUsers = {new User(111L, "one", "hren", (byte)11), new User(222L, "one", "hren", (byte)22)};
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String sUsers = objectMapper.writeValueAsString(arrUsers);
+        sUsers = "{arr:" + sUsers + "}";
+        sUsers = (new JSONObject(sUsers)).toString(4);
+        sUsers = sUsers.replace(" ", "&nbsp;").replace("\n", "<br>\n");
+        sbResp.append("added users: <br>\n").append(sUsers);
+
+        sbResp.append("\n<br>time: ").append((new Date()).toLocaleString()).append("<br>\n");
+        sbResp.append("\n<br>\n </body>\n" + "</html>");
+        return sbResp.toString();
+    }
+
+    public HttpHeaders getHeaders() {
+        return headers;
+    }
+
+    public RestTemplate getRestTemplate() {
+        return restTemplate;
+    }
+}
+
+
 
 /**    ////////////// This works OK (home): //////////////////////////////////////////////
-        ResponseEntity<Object[]> response = restTemplate.getForEntity(
-            "http://91.241.64.178:7081/api/users",
-              //  "https://api.stackexchange.com/2.3/users?order=desc&sort=creation&site=stackoverflow",
-                Object[].class);
-        Object[] objs = response.getBody();
-*/
+ ResponseEntity<Object[]> response = restTemplate.getForEntity(
+ "http://91.241.64.178:7081/api/users",
+ //  "https://api.stackexchange.com/2.3/users?order=desc&sort=creation&site=stackoverflow",
+ Object[].class);
+ Object[] objs = response.getBody();
+ */
 
 
 /**        /////////////////////// It works OK home /////////////////////////////////////////
-        ResponseEntity response = restTemplate.getForEntity("http://91.241.64.178:7081/api/users",
-                User[].class);
-        User[] users = (User[]) response.getBody();
-        // return users;
-*/
-
-        String URL = "http://91.241.64.178:7081/api/users";
-
-///////////////////////// берем список user'oB //////////////////////////////
-        ResponseEntity response = restTemplate.getForEntity(URL, String.class);
-        String sUsers = (String) response.getBody();
-
-        // берем id сессии:
-        String sSesionId =  response.getHeaders().get("Set-Cookie").get(0);
-
-        Object[] objects = {sUsers, "session_id: \n\n" + sSesionId + "   \"", "add here"};
-//        String strObjects = "{\"arr\":" + Arrays.toString(objects) + "}";
-        String strObjects = Arrays.toString(objects);
-        String indented = (new JSONObject()).toString(4); // не работает!!
-
-        System.out.println(indented);
-
-//////////////////////// добавляем user'a ///////////////////////////////////////////
-        User user2add = new User(3L, "James", "Brown",  (byte) 2);
-        // MultiValueMap<String, String> headers = new HashMap<>();
-        HttpHeaders headers = new HttpHeaders();
-//        headers.add("Set-Cookie", "JSESSIONID=28DA658A4CA3E853A00FB92ACEFCD1D5; Path=/; HttpOnly");
-        headers.add("Set-Cookie", "28DA658A4CA3E853A00FB92ACEFCD1D5");
-
-        HttpEntity<User> request = new HttpEntity<>(user2add, headers);
-
-//        User foo = restTemplate.postForObject(URL, request, User.class);
-        ResponseEntity foo = restTemplate.postForEntity(URL, request, String.class);
-
-        objects[2] = "<br>1st answer <br> " + foo.getBody();
-
-        response = restTemplate.getForEntity(URL, String.class);
-        sUsers = (String) response.getBody();
-
-        // берем id сессии:
-        sSesionId =  response.getHeaders().get("Set-Cookie").get(0);
-
-        objects[0] = sUsers;
-        objects[1] =  "session_id: \n\n" + sSesionId;
-        objects[2] = foo.getBody();
-//        String strObjects = "{\"arr\":" + Arrays.toString(objects) + "}";
-         strObjects = Arrays.toString(objects);
-         indented = (new JSONObject()).toString(4); // не работает!!
-
-        System.out.println(indented);
-
-///////////////////////// update user ///////////////////////////////////////////////
-//        Foo updatedInstance = new Foo("newName");
-        user2add.setName("Thomas");
-        user2add.setLastName("Shelby");
-//        updatedInstance.setId(createResponse.getBody().getId());
-//        String resourceUrl =
-//                fooResourceUrl + '/' + createResponse.getBody().getId();
-//        HttpEntity<Foo> requestUpdate = new HttpEntity<>(updatedInstance, headers);
-        HttpEntity<User> request1 = new HttpEntity<>(user2add, headers);
-
-        response = restTemplate.exchange(URL, HttpMethod.POST, request1, String.class);
-
-        // Сработало :)) И равно "cea2a2"
-        /// response.getBody()
-        return objects;
-
-    }
-}
+ ResponseEntity response = restTemplate.getForEntity("http://91.241.64.178:7081/api/users",
+ User[].class);
+ User[] users = (User[]) response.getBody();
+ // return users;
+ */
